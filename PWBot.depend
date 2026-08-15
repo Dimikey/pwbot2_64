@@ -125,3 +125,50 @@
 1724447462 source:d:\projects\pwbot2\utils.c
 	"utils.h"
 
+1772120853 source:d:\projects\pwbot2_64\address.c
+	"address.h"
+
+1773002174 d:\projects\pwbot2_64\address.h
+	<windows.h>
+
+1773002833 source:d:\projects\pwbot2_64\char.c
+	"char.h"
+	"console.h"
+	"address.h"
+	"input.h"
+
+1773002833 d:\projects\pwbot2_64\char.h
+	<windows.h>
+	"utils.h"
+
+1724447462 d:\projects\pwbot2_64\utils.h
+	<windows.h>
+	<stdio.h>
+
+1772122246 d:\projects\pwbot2_64\console.h
+	<stdio.h>
+	<windows.h>
+	"char.h"
+
+1724877610 d:\projects\pwbot2_64\input.h
+	<windows.h>
+
+1773002833 source:d:\projects\pwbot2_64\console.c
+	"console.h"
+
+1724877610 source:d:\projects\pwbot2_64\input.c
+	"input.h"
+
+1772613033 source:d:\projects\pwbot2_64\utils.c
+	"utils.h"
+
+1773002174 source:d:\projects\pwbot2_64\main.c
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<psapi.h>
+	"console.h"
+	"char.h"
+	"utils.h"
+	"address.h"
+

@@ -10,12 +10,15 @@
 
 /**
     BOT NOTE:
-    The bot is designed to work under Perfect World 1.6.x .
+    The bot is designed to work under Perfect World 1.6.x x64.
 
-    It's basically a macros that presses buttons, according to mob target value,
-    and this version of bot heavily relies on TAB button to correctly set targets
+    It's basically a macros that presses buttons, according to mob target value.
+    This version of bot heavily relies on TAB button to set targets
 
 */
+
+#define BOT_FLAG_USE_HEALING_CONSUMABLES    FALSE
+#define BOT_FLAG_USE_MANA_CONSUMABLES       FALSE
 
 /* Essential variables */
 
@@ -24,10 +27,10 @@ HWND pw_hwnd;
 
 // Window name is used to search the game window,
 // and then we use it to get the game process
-LPCSTR windowName = "Perfect World";
+LPCSTR windowName = "PWGlobal.org ¡X Perfect World 1.3.6";
 
-// TODO: May be used for something...
-LPCSTR pw_executable_filename = "elementclient_32.exe";
+
+//LPCSTR pw_executable_filename = "ElementClient.exe";//"elementclient_32.exe";
 DWORD pid;
 int i;
 BOOL is_addr_inititalized = FALSE;
@@ -42,7 +45,7 @@ int target_num;
 //TCHAR szModName[MAX_PATH];
 
 unsigned int stat_total_mobs_killed = 0;
-//unsigned int stat_total_money_earned = 0;
+unsigned int stat_total_money_earned = 0;
 
 
 /*
@@ -73,10 +76,26 @@ DWORD GetBaseAddress(const HANDLE hProcess) {
 }
 */
 
+DWORD_PTR GetBaseAddress(const HANDLE hProcess) {
+	if(hProcess == NULL)
+		return (DWORD_PTR)NULL;
+
+	HMODULE lphModule[1024];
+	DWORD lpcbNeeded;
+
+	if(!EnumProcessModules(hProcess, lphModule, sizeof(lphModule), &lpcbNeeded))
+		return (DWORD_PTR)NULL;
+
+	return (DWORD_PTR)lphModule[0]; // assuming that address of elementclient.exe is always the first
+}
+
 void addr_init() {
     /*
        Find Perfect World's window
     */
+
+    // TODO: also add finding by process name, like "elementclient.ext"
+    // If window is not found, then search by process name
     pw_hwnd = FindWindow(NULL, windowName);
 
     if(!pw_hwnd) {
@@ -89,29 +108,43 @@ void addr_init() {
     */
     GetWindowThreadProcessId(pw_hwnd, &pid);
     pw_pHandle = OpenProcess(PROCESS_ALL_ACCESS, 0, pid);
-
     if(!pw_pHandle) {
-        console_error("OpenProcess() error. Please start as Administrator");
+        console_error("OpenProcess() error. Please start as Administrator. ");
         exit(0);
     }
+    console_log_1num("PW process id", pid);
+
+    // elementclient.exe + 0xAC2D58 ~= 0x7FF777C72D58; // [[0x7FF67BDB2D58] + 0x68] + and apply offsets like 0x70C  ..............
+    DWORD_PTR base_address = GetBaseAddress(pw_pHandle) + offset_base;
+    console_log_1num_hex("PW base address", base_address);
 
     // Read pointer from the base address (static address)
-    ReadProcessMemory(pw_pHandle,(void*)addr_base_static, &address_target, sizeof(address_target), 0);
+    ReadProcessMemory(pw_pHandle, (LPCVOID)base_address, &address_target, sizeof(address_target), 0);
+    //console_log_1num_hex("Read value is ", address_target);
     if(address_target == NULL) {
-        console_error("Error reading addr_base_static. Make sure to launch the game in 32-bit mode!");
+        console_error("Error reading base address!");
         exit(0);
     }
 
-    address_character_struct = address_target + offset_character_struct;
-    ReadProcessMemory(pw_pHandle,(void*)address_character_struct, &address_target, sizeof(address_target), 0);
     // Don't be confused, address_target is also used here to store intermediate value
+    address_character_struct = address_target + offset_to_character_struct;
+    ReadProcessMemory(pw_pHandle,(void*)address_character_struct, &address_character_struct, sizeof(address_target), 0);
 
-    address_target = address_target + offset_target;
+    address_target  = address_character_struct + offset_target;
+    address_hp      = address_character_struct + offset_hp;
+    address_maxhp   = address_character_struct + offset_maxhp;
+    address_mp      = address_character_struct + offset_mp;
+    address_maxmp   = address_character_struct + offset_maxmp;
+    address_exp     = address_character_struct + offset_exp;
+    address_maxexp  = address_character_struct + offset_maxexp;
+    address_money   = address_character_struct + offset_money;
+    address_lvl     = address_character_struct + offset_lvl;
+    address_pos_x   = address_character_struct + offset_pos_x;
+    address_pos_y   = address_character_struct + offset_pos_y;
+    address_pos_z   = address_character_struct + offset_pos_z;
 
 
     // TODO: print some stuff to prove that addresses are correct
-
-
     /*
     int target = 0xFFFFFFFF;
 
@@ -134,6 +167,8 @@ void addr_init() {
     addr_exp    = addr_character_struc_actual + offset_exp;
     addr_maxexp = addr_character_struc_actual + offset_maxexp;
     */
+
+
 
     is_addr_inititalized = TRUE;
 }
@@ -244,15 +279,26 @@ void bot_start() {
         stat_total_mobs_killed++;
         console_log_1num("Mob killed. Total count", stat_total_mobs_killed);
         char_collect_loot();
+        console_print_char_stats();
     }
 }
 
 void misc_start() {
     asm volatile (" movl %eax,%eax ");
     asm volatile (" xor %eax,%eax ");
-
+    /*
+    asm volatile (" movl %rax,%rax ");
+    asm volatile (" xor %rax,%rax ");
+    */
     console_log("Misc done");
 
+}
+
+void misc_character_info() {
+    while(TRUE) {
+        console_print_char_stats();
+        Sleep(1000);
+    }
 }
 
 
@@ -268,23 +314,27 @@ int main() {
     console_log("Select which one to start");
     console_log("1. Bot");
     console_log("2. Misc functions");
+    console_log("3. Print character info");
     console_log("9. Exit");
 
     int choice = 0;
     while(choice != 9) {
         choice = console_get_input();
         switch(choice) {
-        case 1:
-            bot_start();
-            printf("Total kills: %d\n", stat_total_mobs_killed);
-            console_confirm("Bot finished!");
-            break;
-        case 2:
-            misc_start();
-            break;
+            case 1:
+                bot_start();
+                printf("Total kills: %d\n", stat_total_mobs_killed);
+                console_confirm("Bot finished!");
+                break;
+            case 2:
+                misc_start();
+                break;
+            case 3:
+                misc_character_info();
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
     }
 
